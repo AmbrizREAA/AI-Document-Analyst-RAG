@@ -104,5 +104,5 @@ This project is open source under the MIT License. Feel free to use, modify, and
 #### Thank you for visiting!
 
 If you like the project, please give it a ⭐. Any feedback or suggestions are welcome.
-Made Carlos by Alejandro Ambriz.
+Made by Carlos Alejandro Ambriz.
 Actively seeking entry-level opportunities in Data Analyst | IT Business Analyst | AI Applications.
