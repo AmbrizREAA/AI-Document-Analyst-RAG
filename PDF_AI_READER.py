@@ -110,7 +110,7 @@ class DocumentReaderAI:
             llm=self.llm, 
             chain_type="stuff",
             retriever=self.vector_store.as_retriever(search_kwargs={"k": 3}),
-            chain_type_kwargs={"prompt": PROMPT}  # ⬅️ AQUÍ ESTÁ LA MAGIA
+            chain_type_kwargs={"prompt": PROMPT}  
         )
         
         respuesta = qa_chain.invoke(question)
