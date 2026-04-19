@@ -37,7 +37,7 @@ Built with limited hardware (GTX 1060 + 32 GB RAM), demonstrating efficient reso
 
 ```bash
 git clone https://github.com/AmbrizREAA/AI-Document-Analyst-RAG.git
-cd AI-Document-Analyst
+cd AI-Document-Analyst-RAG
 ```
 ### 2. Create virtual environment (recommended)
 
@@ -83,7 +83,7 @@ Example questions:
 
 ## Project Structure
 ```text
-AI-Document-Analyst/
+AI-Document-Analyst-RAG/
 ├── app.py                             # Main application file
 ├── requirements.txt
 ├── .env.example
