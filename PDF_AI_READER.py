@@ -48,7 +48,7 @@ class DocumentReaderAI:
                         
             index_folder = os.path.join(os.getcwd(), "vector_stores", f"{safe_name}_faiss")
             
-            # --- LÓGICA DE MEMORIA ---
+            # --- Logic of storage ---
             if os.path.exists(index_folder):
                 print(f"Loading memory from: {index_folder}")
                 self.vector_store = FAISS.load_local(
@@ -58,7 +58,7 @@ class DocumentReaderAI:
                 )
                 return "The PDF was already in the storage, please ask a question"
 
-            # --- PROCESAMIENTO NUEVO ---
+            # --- New process ---
             print("Loading new document.")
             loader = PyPDFLoader(file_path)
             documents = loader.load()
@@ -67,8 +67,7 @@ class DocumentReaderAI:
             chunks = text_splitter.split_documents(documents)
             
             self.vector_store = FAISS.from_documents(chunks, self.embeddings)
-            
-            # 4. EXTREMADAMENTE IMPORTANTE: Crear la carpeta ANTES de guardar
+                        
             os.makedirs(index_folder, exist_ok=True)
             self.vector_store.save_local(index_folder)
             
@@ -84,7 +83,6 @@ class DocumentReaderAI:
         if not question:
             return "Please ask a question."
 
-        # 1. Definir la "Personalidad" y reglas estrictas para la IA
         prompt_template = """
         You are a highly precise information extraction tool. Your ONLY job is to extract the exact answer to the user's question from the provided context.
 
@@ -103,13 +101,11 @@ class DocumentReaderAI:
 
         Direct Answer:
         """
-        
-        # 2. Crear el objeto Prompt
+       
         PROMPT = PromptTemplate(
             template=prompt_template, input_variables=["context", "question"]
         )
 
-        # 3. Pasar el prompt a LangChain
         qa_chain = RetrievalQA.from_chain_type(
             llm=self.llm, 
             chain_type="stuff",
@@ -127,25 +123,23 @@ def create_interface():
 
     
     corporate_theme = gr.themes.Base(
-        primary_hue=gr.themes.colors.slate,  # Color principal sobrio (gris azulado)
-        neutral_hue=gr.themes.colors.gray,   # Color de fondo neutro
-        radius_size=gr.themes.sizes.radius_none # Elimina las esquinas redondeadas
+        primary_hue=gr.themes.colors.slate,  
+        neutral_hue=gr.themes.colors.gray,   
+        radius_size=gr.themes.sizes.radius_none 
     ).set(
-        # 2. Ajustes adicionales para diseño plano (Flat)
+        
         button_primary_background_fill="*primary_600",
         button_primary_background_fill_hover="*primary_700",
         block_border_width="1px",
         block_background_fill="*neutral_50" 
     )
 
-    # 3. Construcción de la interfaz
     with gr.Blocks(theme=corporate_theme) as interfaz:
         
         gr.Markdown("## AI Document Analyst Pro")
-        # Actualicé la descripción para reflejar que usas Groq y Llama 3
         gr.Markdown("Submit a PDF and ask a question about its content. Powered by Llama 3, LangChain, FAISS, and Groq.")
         
-        gr.HTML("<hr>") # Línea separadora sutil
+        gr.HTML("<hr>") 
         
         with gr.Row():
             with gr.Column(scale=1):
@@ -158,7 +152,7 @@ def create_interface():
                 answer_btn = gr.Button("Submit Question")
                 answer_output = gr.Textbox(label="AI Response", lines=5)
 
-        # Conexión de botones con la clase AI
+        
         process_btn.click(fn=ai_system.process_document, inputs=pdf_input, outputs=status_output)
         answer_btn.click(fn=ai_system.answer_question, inputs=question_input, outputs=answer_output)
 
