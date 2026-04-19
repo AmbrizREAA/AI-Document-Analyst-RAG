@@ -65,7 +65,7 @@ GROQ_API_KEY=your_groq_api_key_here
 ```
 ### 5. Run the application
 ```bash
-python PDF_AI_READER.py
+python app.py
 ```
 # How to Use
 
@@ -84,7 +84,7 @@ Example questions:
 ## Project Structure
 ```text
 AI-RAG-Application/
-├── PDF_AI_READER.py          # Main application file
+├── app.py                    # Main application file
 ├── requirements.txt
 ├── .env.example
 ├── data/                     # Folder where vector databases are stored (auto-created)
