@@ -2,7 +2,7 @@ faiss-cpu==1.13.2
 gradio==6.12.0
 groq==0.37.1
 huggingface_hub==1.11.0
-langchain==1.2.15
+langchain-classic==1.0.4   
 langchain-community==0.4.1
 langchain-core==1.2.31
 langchain-groq==1.1.2

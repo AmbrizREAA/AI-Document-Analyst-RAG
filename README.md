@@ -1,27 +1,51 @@
-# AI Document Analyst
+# AI Document Analyst - RAG Application
 
-This project is a high-performance **RAG (Retrieval-Augmented Generation)** system that allows you to upload PDF documents and perform intelligent queries on their content in real time.
+**Intelligent PDF Document Analysis using Retrieval-Augmented Generation (RAG)**
 
-It leverages the power of **Llama 3** models through **Groq** infrastructure to deliver ultra-fast responses, and uses **LangChain** for orchestrating the data flow.
+This is my first Artificial Intelligence project. A complete application that allows users to upload PDF documents and ask questions in natural language, receiving accurate and context-aware answers.
+
+Built with limited hardware (GTX 1060 + 32 GB RAM), demonstrating efficient resource optimization and practical AI development.
+
+---
 
 ## Features
 
-- **PDF Processing:** Intelligent loading and segmentation of documents.
-- **Semantic Search:** Implementation of **FAISS** for efficient information retrieval.
-- **Modern Interface:** Interactive UI built with **Gradio**.
-- **Security:** Credential management using environment variables (`.env` file).
+- **PDF Upload & Processing**: Intelligent chunking and persistent vector storage with FAISS
+- **Semantic Search**: Accurate retrieval using embeddings
+- **Intelligent Responses**: Powered by Groq + Llama 3.1 with advanced prompt engineering to reduce hallucinations
+- **User-Friendly Interface**: Clean and interactive UI built with Gradio
+- **Document Persistence**: Each uploaded document gets its own FAISS vector database
+- **API Key Security**: Environment variables management via `.env`
 
-## Technologies Used
+---
 
-- **LLM:** Groq (Llama-3-8b-8192 or similar).
-- **Embeddings:** `all-MiniLM-L6-v2` from Hugging Face.
-- **Framework:** LangChain.
-- **Vector Database:** FAISS.
-- **Frontend:** Gradio.
+## Tech Stack
 
-## Requirements and Installation
+- **Python 3.10**
+- **LangChain** (with langchain-classic for compatibility)
+- **Groq** + Llama 3.1 (fast and cost-effective inference)
+- **Hugging Face Embeddings** (`all-MiniLM-L6-v2`)
+- **FAISS-cpu**
+- **Gradio**
+- **Sentence-Transformers**
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/tu-usuario/AI_Document_Analyst.git
-   cd AI_Document_Analyst
+---
+
+## Installation & Usage
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/AmbrizREAA/AI-RAG-Application.git
+cd AI-RAG-Application
+
+### 2. Create virtual environment (recommended)
+'''bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Linux / macOS
+source venv/bin/activate
+
+

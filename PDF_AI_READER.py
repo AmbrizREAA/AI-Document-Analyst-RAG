@@ -9,7 +9,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 import os
 from dotenv import load_dotenv
-    
+
 load_dotenv()
 
 class DocumentReaderAI:
@@ -23,7 +23,7 @@ class DocumentReaderAI:
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-                
+        
         mi_api_key = os.getenv("GROQ_API_KEY") 
         
         self.llm = ChatGroq(
