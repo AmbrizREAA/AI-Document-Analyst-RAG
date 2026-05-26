@@ -15,6 +15,9 @@ Built with limited hardware (GTX 1060 + 32 GB RAM), demonstrating efficient reso
 - **Intelligent Responses**: Powered by Groq + Llama 3.1 with advanced prompt engineering to reduce hallucinations
 - **User-Friendly Interface**: Clean and interactive UI built with Gradio
 - **Document Persistence**: Each uploaded document gets its own FAISS vector database
+- **Existing Database Dropdown**: Already-processed PDFs are auto-detected at startup and can be loaded instantly without re-upload
+- **Per-Session State**: Each user gets an isolated `gr.State()` vector store — no cross-talk between concurrent sessions
+- **Modern Retrieval Chain**: Uses LangChain v0.2/v0.3 style `create_retrieval_chain` + `create_stuff_documents_chain` (replaces deprecated `RetrievalQA`)
 - **API Key Security**: Environment variables management via `.env`
 
 ---
@@ -69,11 +72,12 @@ python app.py
 ```
 # How to Use
 
-Run the application.
-Go to the "Upload Document" tab and upload one or more PDF files.
-Switch to the "Chat with Documents" tab.
-Ask questions in natural language and press Enter.
-The app will retrieve relevant information and provide precise answers based on the document content.
+Run the application. The UI offers two entry points:
+
+1. **Load an existing database (optional)** — the dropdown lists every FAISS index previously saved under `vector_stores/`. Pick one to start asking questions immediately.
+2. **Upload a new PDF** — choose a file, click *Process Document*. If the same PDF has been processed before, its stored index is reused; otherwise the app chunks, embeds, and saves a new one.
+
+Then type a question in natural language and press *Submit Question*. The app retrieves the top-k relevant chunks and produces a precise, context-bound answer.
 
 Example questions:
 
