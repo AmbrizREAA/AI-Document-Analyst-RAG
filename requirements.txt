@@ -9,6 +9,6 @@ langchain-core==1.2.31
 langchain-groq==1.1.2
 langchain-huggingface==1.2.2
 langchain-text-splitters==1.1.2
-pypdf==6.10.2
+pymupdf==1.27.2.3
 python-dotenv==1.2.2
 sentence-transformers==5.4.1
