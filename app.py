@@ -1,7 +1,7 @@
 import gradio as gr
 import os
 import re
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -15,7 +15,6 @@ load_dotenv()
 
 VECTOR_STORES_DIR = os.path.realpath(os.path.join(os.getcwd(), "vector_stores"))
 
-
 def _safe_index_path(store_name: str) -> str | None:
     """Resolve a vector-store folder under VECTOR_STORES_DIR.
 
@@ -24,7 +23,6 @@ def _safe_index_path(store_name: str) -> str | None:
     """
     if not store_name or not isinstance(store_name, str):
         return None
-    # Block path separators and parent refs outright — store names are flat folder names.
     if any(sep in store_name for sep in ("/", "\\")) or store_name in (".", ".."):
         return None
     candidate = os.path.realpath(os.path.join(VECTOR_STORES_DIR, store_name))
@@ -32,6 +30,21 @@ def _safe_index_path(store_name: str) -> str | None:
     if candidate != root and not candidate.startswith(root + os.sep):
         return None
     return candidate
+
+
+def _normalize_text(text: str) -> str:
+    """Clean up PDF extraction artifacts before chunking/embedding.
+
+    Real-world PDFs (especially those from design tools) often extract with
+    erratic whitespace: words split across lines, stray blank lines, and runs of
+    multiple spaces. Garbled spacing wrecks embedding quality and retrieval, so we
+    collapse all whitespace runs to single spaces and trim. This does not repair
+    per-character spacing; PyMuPDF avoids that artifact at the
+    source, which PyPDFLoader did not.
+    """
+    if not text:
+        return ""
+    return re.sub(r"\s+", " ", text).strip()
 
 
 class DocumentReaderAI:
@@ -49,15 +62,14 @@ class DocumentReaderAI:
                 "from https://console.groq.com/keys before starting the app."
             )
 
-        # 1. Model used to convert text to numbers (Embeddings)
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
 
         self.llm = ChatGroq(
-            temperature=0,                    # 0 means no creativity or hallucinations
+            temperature=0,                   
             groq_api_key=mi_api_key,
-            model_name="llama-3.1-8b-instant" # Llama 3 by meta, optimized by groq
+            model_name="llama-3.1-8b-instant" 
         )
 
         prompt_template = """
@@ -80,9 +92,6 @@ class DocumentReaderAI:
         """
 
         self.prompt = ChatPromptTemplate.from_template(prompt_template)
-        # Modern LangChain stuff-documents chain. RetrievalQA is deprecated upstream;
-        # this app already uses the recommended replacement (create_retrieval_chain +
-        # create_stuff_documents_chain), so no further migration is needed.
         self.combine_docs_chain = create_stuff_documents_chain(self.llm, self.prompt)
 
     def _load_faiss(self, index_folder: str):
@@ -124,20 +133,28 @@ class DocumentReaderAI:
             if index_folder is None:
                 return "Invalid storage path resolved for this PDF.", vector_store
 
-            # --- Reuse existing index if we built one for this PDF before ---
             if os.path.isdir(index_folder):
                 vector_store = self._load_faiss(index_folder)
                 return "The PDF was already in storage. Please ask a question.", vector_store
 
-            # --- New document: chunk, embed, persist ---
             print("Loading new document.")
             if not os.path.isfile(file_path):
                 return "The uploaded file could not be found on disk.", vector_store
 
-            loader = PyPDFLoader(file_path)
+            loader = PyMuPDFLoader(file_path)
             documents = loader.load()
             if not documents:
                 return "The PDF appears to be empty or unreadable.", vector_store
+
+            for doc in documents:
+                doc.page_content = _normalize_text(doc.page_content)
+
+            if sum(len(d.page_content) for d in documents) < 20:
+                return (
+                    "No readable text could be extracted. The PDF may be a scanned "
+                    "image and would require OCR.",
+                    vector_store,
+                )
 
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
             chunks = text_splitter.split_documents(documents)
@@ -224,7 +241,6 @@ def create_interface():
 
         gr.HTML("<hr>")
 
-        # Per-session vector store (fixes shared-state cross-talk between users)
         vs_state = gr.State(value=None)
 
         with gr.Row():
@@ -244,10 +260,14 @@ def create_interface():
                 answer_output = gr.Textbox(label="AI Response", lines=5)
 
 
+        def process_and_refresh(file_path, vector_store):
+            status, vs = ai_system.process_document(file_path, vector_store)
+            return status, vs, gr.update(choices=list_existing_stores())
+
         process_btn.click(
-            fn=ai_system.process_document,
+            fn=process_and_refresh,
             inputs=[pdf_input, vs_state],
-            outputs=[status_output, vs_state]
+            outputs=[status_output, vs_state, existing_dropdown]
         )
         existing_dropdown.change(
             fn=ai_system.load_existing,
@@ -266,7 +286,6 @@ if __name__ == "__main__":
     try:
         app = create_interface()
     except RuntimeError as e:
-        # Surface configuration errors (e.g. missing GROQ_API_KEY) cleanly at startup.
         print(f"\n[CONFIG ERROR] {e}\n")
         raise SystemExit(1)
     app.launch()
