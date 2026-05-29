@@ -1,13 +1,26 @@
-# Variables de entorno y secretos
+# Environment variables and secrets
 .env
+.env.local
 
-# Entornos virtuales
+# Virtual environments
 venv/
 env/
+.venv/
 
-# Archivos basura de Python
+# Python build / cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 
-# Bases de datos vectoriales locales (Opcional, si guardas el FAISS localmente)
-faiss_index/
+# Local FAISS vector stores (generated at runtime — never commit user data or embeddings)
+vector_stores/
+
+# Editors / IDEs
+.idea/
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db

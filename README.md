@@ -11,13 +11,14 @@ Built with limited hardware (GTX 1060 + 32 GB RAM), demonstrating efficient reso
 ## Features
 
 - **PDF Upload & Processing**: Intelligent chunking and persistent vector storage with FAISS
+- **One PDF at a time**: The current UI works with a single active PDF per session (you can switch between previously processed PDFs via the dropdown)
 - **Semantic Search**: Accurate retrieval using embeddings
 - **Intelligent Responses**: Powered by Groq + Llama 3.1 with advanced prompt engineering to reduce hallucinations
 - **User-Friendly Interface**: Clean and interactive UI built with Gradio
 - **Document Persistence**: Each uploaded document gets its own FAISS vector database
 - **Existing Database Dropdown**: Already-processed PDFs are auto-detected at startup and can be loaded instantly without re-upload
 - **Per-Session State**: Each user gets an isolated `gr.State()` vector store — no cross-talk between concurrent sessions
-- **Modern Retrieval Chain**: Uses LangChain v0.2/v0.3 style `create_retrieval_chain` + `create_stuff_documents_chain` (replaces deprecated `RetrievalQA`)
+- **Modern Retrieval Chain**: Uses the current LangChain `create_retrieval_chain` + `create_stuff_documents_chain` API (replaces the deprecated `RetrievalQA`)
 - **API Key Security**: Environment variables management via `.env`
 
 ---
@@ -60,12 +61,18 @@ pip install -r requirements.txt
 
 ### 4. Set up environment variables
 ```bash
+# Linux / macOS
 cp .env.example .env
+
+# Windows (PowerShell)
+Copy-Item .env.example .env
 ```
-Edit the .env file and add your key:
+Edit the `.env` file and add your key:
 ```bash
 GROQ_API_KEY=your_groq_api_key_here
 ```
+The app validates `GROQ_API_KEY` at startup and exits with a clear message if it is missing or still set to the placeholder.
+
 ### 5. Run the application
 ```bash
 python app.py
@@ -91,9 +98,17 @@ AI-Document-Analyst-RAG/
 ├── app.py                             # Main application file
 ├── requirements.txt
 ├── .env.example
-├── vector_stores/                     # Folder where vector databases are stored (auto-created)
+├── .gitignore
+├── vector_stores/                     # Folder where FAISS indexes are stored (auto-created, git-ignored)
 └── README.md
 ```
+---
+## Security Notes
+
+- **FAISS deserialization**: This app loads FAISS indexes with `allow_dangerous_deserialization=True`, which uses Python `pickle` under the hood. Loading a pickle file from an untrusted source can execute arbitrary code on your machine. The app only loads indexes from the local `vector_stores/` directory (paths are validated to prevent traversal), and you should **never** copy a `vector_stores/<name>_faiss/` folder from someone you do not trust into this project.
+- **API key handling**: `GROQ_API_KEY` is loaded from `.env`, which is git-ignored. Do not paste your key into source files, commit messages, or screenshots.
+- **Generated vector stores are not for git**: The `vector_stores/` folder contains embeddings derived from your PDFs and is excluded by `.gitignore`. If older commits accidentally tracked any `*_faiss/` folder, untrack it with `git rm -r --cached vector_stores/<that_folder>` and commit the removal.
+
 ---
 ### Future Improvements
 

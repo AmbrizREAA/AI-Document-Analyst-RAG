@@ -13,7 +13,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-VECTOR_STORES_DIR = os.path.join(os.getcwd(), "vector_stores")
+VECTOR_STORES_DIR = os.path.realpath(os.path.join(os.getcwd(), "vector_stores"))
+
+
+def _safe_index_path(store_name: str) -> str | None:
+    """Resolve a vector-store folder under VECTOR_STORES_DIR.
+
+    Returns the absolute path only if the resolved location stays inside
+    VECTOR_STORES_DIR. Returns None on attempted path traversal (e.g. "..", "/etc/...").
+    """
+    if not store_name or not isinstance(store_name, str):
+        return None
+    # Block path separators and parent refs outright — store names are flat folder names.
+    if any(sep in store_name for sep in ("/", "\\")) or store_name in (".", ".."):
+        return None
+    candidate = os.path.realpath(os.path.join(VECTOR_STORES_DIR, store_name))
+    root = VECTOR_STORES_DIR
+    if candidate != root and not candidate.startswith(root + os.sep):
+        return None
+    return candidate
 
 
 class DocumentReaderAI:
@@ -24,12 +42,17 @@ class DocumentReaderAI:
     def __init__(self):
         print("Loading model...")
 
+        mi_api_key = os.getenv("GROQ_API_KEY")
+        if not mi_api_key or mi_api_key.strip() in ("", "your_groq_api_key_here"):
+            raise RuntimeError(
+                "GROQ_API_KEY is not set. Copy .env.example to .env and add your key "
+                "from https://console.groq.com/keys before starting the app."
+            )
+
         # 1. Model used to convert text to numbers (Embeddings)
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
-
-        mi_api_key = os.getenv("GROQ_API_KEY")
 
         self.llm = ChatGroq(
             temperature=0,                    # 0 means no creativity or hallucinations
@@ -57,76 +80,114 @@ class DocumentReaderAI:
         """
 
         self.prompt = ChatPromptTemplate.from_template(prompt_template)
-        # Modern LangChain v0.2/v0.3 stuff-documents chain (replaces RetrievalQA)
+        # Modern LangChain stuff-documents chain. RetrievalQA is deprecated upstream;
+        # this app already uses the recommended replacement (create_retrieval_chain +
+        # create_stuff_documents_chain), so no further migration is needed.
         self.combine_docs_chain = create_stuff_documents_chain(self.llm, self.prompt)
 
+    def _load_faiss(self, index_folder: str):
+        """Load a FAISS index from disk.
+
+        SECURITY: FAISS persists its docstore via Python pickle. Deserializing a pickle
+        file from an untrusted source can execute arbitrary code. We only load folders
+        we created ourselves under VECTOR_STORES_DIR, callers must validate the path
+        with _safe_index_path() first, and users should never load indexes obtained
+        from third parties into this app.
+        """
+        print(f"Loading memory from: {index_folder}")
+        return FAISS.load_local(
+            index_folder,
+            self.embeddings,
+            allow_dangerous_deserialization=True,
+        )
+
     def process_document(self, file_path: str, vector_store):
-        """Reads the PDF, divides it and creates the vectorial base. The PDF is saved locally.
-        Returns (status, vector_store) so Gradio holds the store in per-session gr.State."""
+        """Reads the PDF, splits it into chunks and builds a FAISS vector index.
+
+        The FAISS index (not the original PDF) is persisted locally so the same PDF
+        can be reused on later runs. Returns (status, vector_store) so Gradio holds
+        the store in per-session gr.State.
+        """
         if not file_path:
-            return "Please enter a PDF document.", vector_store
+            return "Please upload a PDF document.", vector_store
 
         try:
-            base_name = os.path.basename(file_path).replace(".pdf", "")
-            safe_name = re.sub(r'[^a-zA-Z0-9]', '_', base_name)
-            index_folder = os.path.join(VECTOR_STORES_DIR, f"{safe_name}_faiss")
+            base_name = os.path.basename(file_path)
+            if base_name.lower().endswith(".pdf"):
+                base_name = base_name[:-4]
+            safe_name = re.sub(r'[^a-zA-Z0-9]', '_', base_name).strip("_")
+            if not safe_name:
+                return "Invalid PDF filename. Please rename the file and try again.", vector_store
 
-            # --- Logic of storage ---
-            if os.path.exists(index_folder):
-                print(f"Loading memory from: {index_folder}")
-                vector_store = FAISS.load_local(
-                    index_folder,
-                    self.embeddings,
-                    allow_dangerous_deserialization=True
-                )
-                return "The PDF was already in the storage, please ask a question", vector_store
+            folder_name = f"{safe_name}_faiss"
+            index_folder = _safe_index_path(folder_name)
+            if index_folder is None:
+                return "Invalid storage path resolved for this PDF.", vector_store
 
-            # --- New process ---
+            # --- Reuse existing index if we built one for this PDF before ---
+            if os.path.isdir(index_folder):
+                vector_store = self._load_faiss(index_folder)
+                return "The PDF was already in storage. Please ask a question.", vector_store
+
+            # --- New document: chunk, embed, persist ---
             print("Loading new document.")
+            if not os.path.isfile(file_path):
+                return "The uploaded file could not be found on disk.", vector_store
+
             loader = PyPDFLoader(file_path)
             documents = loader.load()
+            if not documents:
+                return "The PDF appears to be empty or unreadable.", vector_store
 
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
             chunks = text_splitter.split_documents(documents)
+            if not chunks:
+                return "No extractable text was found in the PDF.", vector_store
 
             vector_store = FAISS.from_documents(chunks, self.embeddings)
 
             os.makedirs(index_folder, exist_ok=True)
             vector_store.save_local(index_folder)
 
-            return "PDF document processed sucessfully, please ask a question", vector_store
+            return "PDF document processed successfully. Please ask a question.", vector_store
 
+        except FileNotFoundError:
+            return "The uploaded file could not be found on disk.", vector_store
+        except PermissionError:
+            return "Permission denied while reading the PDF or writing the index.", vector_store
         except Exception as e:
-            return f"Error: {str(e)}", vector_store
+            print(f"process_document error: {e!r}")
+            return "An unexpected error occurred while processing the PDF. Please try a different file.", vector_store
 
     def load_existing(self, store_name: str):
         """Loads a previously processed FAISS store from the vector_stores directory."""
         if not store_name:
             return "Please select a database.", None
         try:
-            index_folder = os.path.join(VECTOR_STORES_DIR, store_name)
-            print(f"Loading memory from: {index_folder}")
-            vs = FAISS.load_local(
-                index_folder,
-                self.embeddings,
-                allow_dangerous_deserialization=True
-            )
+            index_folder = _safe_index_path(store_name)
+            if index_folder is None or not os.path.isdir(index_folder):
+                return "Database not found.", None
+            vs = self._load_faiss(index_folder)
             return f"Loaded '{store_name}'. Please ask a question.", vs
         except Exception as e:
-            return f"Error: {str(e)}", None
+            print(f"load_existing error: {e!r}")
+            return "Could not load the selected database.", None
 
     def answer_question(self, question: str, vector_store) -> str:
-        """Searches document using FAISS and writes the answer using Llama."""
+        """Retrieves the top-k relevant chunks from FAISS and produces an answer via the LLM."""
         if vector_store is None:
             return "You need to upload and process a PDF first."
-        if not question:
+        if not question or not question.strip():
             return "Please ask a question."
 
-        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-        rag_chain = create_retrieval_chain(retriever, self.combine_docs_chain)
-
-        respuesta = rag_chain.invoke({"input": question})
-        return respuesta["answer"]
+        try:
+            retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+            rag_chain = create_retrieval_chain(retriever, self.combine_docs_chain)
+            respuesta = rag_chain.invoke({"input": question})
+            return respuesta["answer"]
+        except Exception as e:
+            print(f"answer_question error: {e!r}")
+            return "Sorry, something went wrong while generating the answer. Please try again."
 
 
 def list_existing_stores():
@@ -202,5 +263,10 @@ def create_interface():
     return interfaz
 
 if __name__ == "__main__":
-    app = create_interface()
+    try:
+        app = create_interface()
+    except RuntimeError as e:
+        # Surface configuration errors (e.g. missing GROQ_API_KEY) cleanly at startup.
+        print(f"\n[CONFIG ERROR] {e}\n")
+        raise SystemExit(1)
     app.launch()
