@@ -16,7 +16,11 @@ __pycache__/
 .Python
 .pytest_cache/
 
-# Local FAISS vector stores (generated at runtime — never commit user data or embeddings)
+# Persistent ChromaDB vector store (generated at runtime — never commit user data or embeddings)
+chroma_db/
+storage/chroma/
+
+# Legacy FAISS vector stores (no longer used; ignored so old folders aren't committed)
 vector_stores/
 
 # Uploaded / processed user documents (never commit user data)
