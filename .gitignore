@@ -1,6 +1,7 @@
 # Environment variables and secrets
 .env
 .env.local
+*.pkl
 
 # Virtual environments
 venv/
@@ -13,9 +14,18 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+.pytest_cache/
 
 # Local FAISS vector stores (generated at runtime — never commit user data or embeddings)
 vector_stores/
+
+# Uploaded / processed user documents (never commit user data)
+uploads/
+processed_documents/
+
+# Local databases
+*.db
+*.sqlite3
 
 # Editors / IDEs
 .idea/

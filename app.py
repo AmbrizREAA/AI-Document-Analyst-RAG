@@ -11,25 +11,17 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 
+from security import (
+    VECTOR_STORES_DIR,
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE_MB,
+    sanitize_filename,
+    has_allowed_extension,
+    is_within_size_limit,
+    safe_index_path,
+)
+
 load_dotenv()
-
-VECTOR_STORES_DIR = os.path.realpath(os.path.join(os.getcwd(), "vector_stores"))
-
-def _safe_index_path(store_name: str) -> str | None:
-    """Resolve a vector-store folder under VECTOR_STORES_DIR.
-
-    Returns the absolute path only if the resolved location stays inside
-    VECTOR_STORES_DIR. Returns None on attempted path traversal (e.g. "..", "/etc/...").
-    """
-    if not store_name or not isinstance(store_name, str):
-        return None
-    if any(sep in store_name for sep in ("/", "\\")) or store_name in (".", ".."):
-        return None
-    candidate = os.path.realpath(os.path.join(VECTOR_STORES_DIR, store_name))
-    root = VECTOR_STORES_DIR
-    if candidate != root and not candidate.startswith(root + os.sep):
-        return None
-    return candidate
 
 
 def _normalize_text(text: str) -> str:
@@ -100,7 +92,7 @@ class DocumentReaderAI:
         SECURITY: FAISS persists its docstore via Python pickle. Deserializing a pickle
         file from an untrusted source can execute arbitrary code. We only load folders
         we created ourselves under VECTOR_STORES_DIR, callers must validate the path
-        with _safe_index_path() first, and users should never load indexes obtained
+        with safe_index_path() first, and users should never load indexes obtained
         from third parties into this app.
         """
         print(f"Loading memory from: {index_folder}")
@@ -121,15 +113,18 @@ class DocumentReaderAI:
             return "Please upload a PDF document.", vector_store
 
         try:
-            base_name = os.path.basename(file_path)
-            if base_name.lower().endswith(".pdf"):
-                base_name = base_name[:-4]
+            clean_name = sanitize_filename(file_path)
+            if not has_allowed_extension(clean_name):
+                allowed = ", ".join(ALLOWED_EXTENSIONS)
+                return f"Unsupported file type. Allowed: {allowed}.", vector_store
+
+            base_name = clean_name[:-4] if clean_name.lower().endswith(".pdf") else clean_name
             safe_name = re.sub(r'[^a-zA-Z0-9]', '_', base_name).strip("_")
             if not safe_name:
                 return "Invalid PDF filename. Please rename the file and try again.", vector_store
 
             folder_name = f"{safe_name}_faiss"
-            index_folder = _safe_index_path(folder_name)
+            index_folder = safe_index_path(folder_name)
             if index_folder is None:
                 return "Invalid storage path resolved for this PDF.", vector_store
 
@@ -140,6 +135,9 @@ class DocumentReaderAI:
             print("Loading new document.")
             if not os.path.isfile(file_path):
                 return "The uploaded file could not be found on disk.", vector_store
+
+            if not is_within_size_limit(file_path):
+                return f"The file is too large. Maximum size is {MAX_FILE_SIZE_MB} MB.", vector_store
 
             loader = PyMuPDFLoader(file_path)
             documents = loader.load()
@@ -181,7 +179,7 @@ class DocumentReaderAI:
         if not store_name:
             return "Please select a database.", None
         try:
-            index_folder = _safe_index_path(store_name)
+            index_folder = safe_index_path(store_name)
             if index_folder is None or not os.path.isdir(index_folder):
                 return "Database not found.", None
             vs = self._load_faiss(index_folder)
@@ -247,7 +245,7 @@ def create_interface():
             with gr.Column(scale=1):
                 existing_dropdown = gr.Dropdown(
                     choices=list_existing_stores(),
-                    label="0. Load an existing database (optional)",
+                    label="Load an existing database (optional)",
                     interactive=True
                 )
                 pdf_input = gr.File(label="1. Load PDF", file_types=[".pdf"])
@@ -255,7 +253,7 @@ def create_interface():
                 status_output = gr.Textbox(label="System Status", interactive=False)
 
             with gr.Column(scale=2):
-                question_input = gr.Textbox(label="2. Ask something about the text", lines=2)
+                question_input = gr.Textbox(label="Ask something about the text", lines=2)
                 answer_btn = gr.Button("Submit Question")
                 answer_output = gr.Textbox(label="AI Response", lines=5)
 
