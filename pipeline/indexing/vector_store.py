@@ -14,8 +14,8 @@ import hashlib
 import chromadb
 from langchain_core.documents import Document
 
-from config.settings import CHROMA_DIR, CHROMA_COLLECTION, RETRIEVER_K
-from indexing.embeddings import get_embeddings
+from platform_layer.config.settings import CHROMA_DIR, CHROMA_COLLECTION, RETRIEVER_K
+from pipeline.indexing.embeddings import get_embeddings
 
 # Lazily-created singletons so the embedding model and Chroma client are each
 # built once per process.

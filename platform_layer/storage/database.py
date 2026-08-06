@@ -27,7 +27,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.dialects.postgresql import JSONB, insert as pg_insert
 
-from config.settings import DATABASE_URL
+from platform_layer.config.settings import DATABASE_URL
 
 metadata = MetaData()
 

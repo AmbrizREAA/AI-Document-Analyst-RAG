@@ -12,7 +12,7 @@ on-disk vector stores:
 import os
 import re
 
-from config.settings import (
+from platform_layer.config.settings import (
     VECTOR_STORES_DIR,
     ALLOWED_EXTENSIONS,
     MAX_FILE_SIZE_BYTES,

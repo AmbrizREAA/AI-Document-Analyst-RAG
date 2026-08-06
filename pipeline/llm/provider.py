@@ -3,13 +3,13 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
 
-from config.settings import (
+from platform_layer.config.settings import (
     GROQ_API_KEY,
     LLM_MODEL_NAME,
     LLM_TEMPERATURE,
     MAX_ANSWER_TOKENS,
 )
-from llm.prompts import get_analyst_prompt, get_summary_prompt
+from pipeline.llm.prompts import get_analyst_prompt, get_summary_prompt
 
 
 def get_llm() -> ChatGroq:

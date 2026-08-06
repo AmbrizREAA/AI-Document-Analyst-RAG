@@ -1,6 +1,6 @@
 """Entrypoint: build the Gradio interface and launch the app."""
 
-from ui.gradio_app import create_interface
+from app_layer.ui.gradio_app import create_interface
 
 if __name__ == "__main__":
     try:

@@ -23,37 +23,40 @@ Built and tested on modest hardware (GTX 1060 + 32 GB RAM) with a focus on a cle
 
 ## Architecture
 
-The code is organized into small, single-responsibility modules:
+The code is organized into small, single-responsibility modules, grouped under three top-level packages:
 
 ```text
 AI-Document-Analyst-RAG/
-├── app.py                      # Entry point: builds and launches the Gradio app
-├── config/
-│   └── settings.py             # Central config + .env loading (the only place secrets are read)
-├── ui/
-│   └── gradio_app.py           # Gradio interface + orchestration (DocumentReaderAI)
-├── ingestion/
-│   ├── pdf_loader.py           # PyMuPDF PDF loading (page metadata)
-│   └── loaders.py              # Multi-format dispatcher (MarkItDown / pandas / python-pptx)
-├── processing/
-│   └── chunker.py              # Per-format chunking strategy
-├── indexing/
-│   ├── embeddings.py           # HuggingFace / SentenceTransformers embeddings
-│   └── vector_store.py         # ChromaDB collection: add / retrieve / soft-delete
-├── retrieval/
-│   ├── retriever.py            # Retrieve + generate
-│   └── context_builder.py      # Source-labeled evidence blocks for citations
-├── llm/
-│   ├── provider.py             # Groq/Llama client + answer chain
-│   └── prompts.py              # Analyst prompt (grounding, citations, injection resistance)
-├── security/
-│   └── path_safety.py          # Filename sanitization, traversal prevention, size/type checks
-├── storage/
-│   ├── database.py             # PostgreSQL (SQLAlchemy Core): documents/chunks/conversations/messages
-│   └── file_manager.py         # Document-id derivation + legacy-FAISS detection
-├── tests/                      # pytest suite (unit + integration)
-└── scripts/
-    └── smoke_test.py           # One-shot health check (imports, env, DB, Chroma, config)
+├── app.py                          # Entry point: builds and launches the Gradio app
+├── pipeline/                       # The RAG data flow, end to end
+│   ├── ingestion/
+│   │   ├── pdf_loader.py           # PyMuPDF PDF loading (page metadata)
+│   │   └── loaders.py              # Multi-format dispatcher (MarkItDown / pandas / python-pptx)
+│   ├── processing/
+│   │   └── chunker.py              # Per-format chunking strategy
+│   ├── indexing/
+│   │   ├── embeddings.py           # HuggingFace / SentenceTransformers embeddings
+│   │   └── vector_store.py         # ChromaDB collection: add / retrieve / soft-delete
+│   ├── retrieval/
+│   │   ├── retriever.py            # Retrieve + generate
+│   │   └── context_builder.py      # Source-labeled evidence blocks for citations
+│   └── llm/
+│       ├── provider.py             # Groq/Llama client + answer chain
+│       └── prompts.py              # Analyst prompt (grounding, citations, injection resistance)
+├── platform_layer/                 # Cross-cutting infrastructure
+│   ├── config/
+│   │   └── settings.py             # Central config + .env loading (the only place secrets are read)
+│   ├── storage/
+│   │   ├── database.py             # PostgreSQL (SQLAlchemy Core): documents/chunks/conversations/messages
+│   │   └── file_manager.py         # Document-id derivation + legacy-FAISS detection
+│   └── security/
+│       └── path_safety.py          # Filename sanitization, traversal prevention, size/type checks
+└── app_layer/                      # User-facing surface
+    ├── ui/
+    │   └── gradio_app.py           # Gradio interface + orchestration (DocumentReaderAI)
+    ├── scripts/
+    │   └── smoke_test.py           # One-shot health check (imports, env, DB, Chroma, config)
+    └── tests/                      # pytest suite (unit + integration)
 ```
 
 ### Why ChromaDB (instead of FAISS)
@@ -198,16 +201,16 @@ pytest -m chroma            # ChromaDB tests (loads the embedding model)
 
 Test coverage:
 
-- `tests/test_security.py` — filename sanitization, path-traversal prevention, allowed-extension validation, upload size limits
-- `tests/test_database.py` — DB init, table schema, document registry, logical delete, failed status, chunk metadata (incl. JSONB and optional positional fields), conversation memory
-- `tests/test_chroma.py` — collection init, add, metadata-filtered retrieval, exclusion of deleted/unselected docs, controlled error on empty selection
+- `app_layer/tests/test_security.py` — filename sanitization, path-traversal prevention, allowed-extension validation, upload size limits
+- `app_layer/tests/test_database.py` — DB init, table schema, document registry, logical delete, failed status, chunk metadata (incl. JSONB and optional positional fields), conversation memory
+- `app_layer/tests/test_chroma.py` — collection init, add, metadata-filtered retrieval, exclusion of deleted/unselected docs, controlled error on empty selection
 
 ### Smoke test
 
 A standalone health check that verifies imports, environment variables, the PostgreSQL connection + tables, the ChromaDB collection, and config — **without launching Gradio or downloading the LLM**. It masks the database password in its output.
 
 ```bash
-python scripts/smoke_test.py
+python app_layer/scripts/smoke_test.py
 ```
 
 ---

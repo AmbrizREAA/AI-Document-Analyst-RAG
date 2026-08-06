@@ -11,32 +11,32 @@ import hashlib
 
 import gradio as gr
 
-from config.settings import (
+from platform_layer.config.settings import (
     ALLOWED_EXTENSIONS,
     MAX_FILE_SIZE_MB,
     CHROMA_COLLECTION,
     RECENT_MESSAGES_LIMIT,
     SUMMARY_UPDATE_EVERY,
 )
-from security.path_safety import (
+from platform_layer.security.path_safety import (
     sanitize_filename,
     has_allowed_extension,
     is_within_size_limit,
     file_type_of,
 )
-from storage.file_manager import safe_document_id
-from ingestion.loaders import load_document, DocumentLoadError
-from processing.chunker import chunk_documents
-from indexing.vector_store import (
+from platform_layer.storage.file_manager import safe_document_id
+from pipeline.ingestion.loaders import load_document, DocumentLoadError
+from pipeline.processing.chunker import chunk_documents
+from pipeline.indexing.vector_store import (
     get_embedder,
     add_documents_to_vector_store,
     build_chunk_records,
     delete_document,
     NoDocumentSelectedError,
 )
-from llm.provider import get_llm, build_answer_chain, summarize_conversation
-from retrieval.retriever import answer_with_retrieval
-from storage.database import (
+from pipeline.llm.provider import get_llm, build_answer_chain, summarize_conversation
+from pipeline.retrieval.retriever import answer_with_retrieval
+from platform_layer.storage.database import (
     init_db,
     create_document_record,
     update_document_status,

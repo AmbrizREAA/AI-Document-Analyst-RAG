@@ -2,7 +2,7 @@
 
 Run from the project root:
 
-    python scripts/smoke_test.py
+    python app_layer/scripts/smoke_test.py
 
 Verifies that imports work, environment variables are loaded, PostgreSQL is
 reachable and initialized, the ChromaDB collection opens, and app config/wiring
@@ -15,8 +15,13 @@ Exits 0 if every check passes, 1 otherwise.
 import os
 import sys
 
-# Make the project root importable when run as `python scripts/smoke_test.py`.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Make the project root importable when run as `python app_layer/scripts/smoke_test.py`.
+sys.path.insert(
+    0,
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ),
+)
 
 PASS = "[ OK ]"
 FAIL = "[FAIL]"
@@ -33,17 +38,17 @@ def _mask_db_url(url: str) -> str:
 
 
 def check_imports():
-    import config.settings  # noqa: F401
-    import security.path_safety  # noqa: F401
-    import storage.database  # noqa: F401
-    import indexing.vector_store  # noqa: F401
-    import retrieval.retriever  # noqa: F401
-    import ingestion.loaders  # noqa: F401
+    import platform_layer.config.settings  # noqa: F401
+    import platform_layer.security.path_safety  # noqa: F401
+    import platform_layer.storage.database  # noqa: F401
+    import pipeline.indexing.vector_store  # noqa: F401
+    import pipeline.retrieval.retriever  # noqa: F401
+    import pipeline.ingestion.loaders  # noqa: F401
     return "core modules import cleanly"
 
 
 def check_env():
-    from config.settings import GROQ_API_KEY, DATABASE_URL
+    from platform_layer.config.settings import GROQ_API_KEY, DATABASE_URL
     problems = []
     if not GROQ_API_KEY or GROQ_API_KEY.strip() in ("", "your_groq_api_key_here"):
         problems.append("GROQ_API_KEY missing/placeholder")
@@ -59,7 +64,7 @@ def check_env():
 
 
 def check_postgres():
-    from storage.database import init_db, get_engine
+    from platform_layer.storage.database import init_db, get_engine
     from sqlalchemy import inspect
     init_db()  # creates DB/tables if needed; raises a clean error if unreachable
     tables = set(inspect(get_engine()).get_table_names())
@@ -71,8 +76,8 @@ def check_postgres():
 
 
 def check_chroma():
-    from indexing.vector_store import get_collection
-    from config.settings import CHROMA_DIR, CHROMA_COLLECTION
+    from pipeline.indexing.vector_store import get_collection
+    from platform_layer.config.settings import CHROMA_DIR, CHROMA_COLLECTION
     collection = get_collection()
     if not os.path.isdir(CHROMA_DIR):
         raise RuntimeError("Chroma persist directory was not created")
@@ -80,9 +85,9 @@ def check_chroma():
 
 
 def check_config_and_wiring():
-    from config import settings
+    from platform_layer.config import settings
     # App wiring imports without launching Gradio or loading the model.
-    from ui.gradio_app import create_interface  # noqa: F401
+    from app_layer.ui.gradio_app import create_interface  # noqa: F401
     return (
         f"config OK (formats={len(settings.ALLOWED_EXTENSIONS)}, "
         f"max_upload={settings.MAX_FILE_SIZE_MB}MB, top_k={settings.RETRIEVER_K}, "

@@ -2,7 +2,7 @@
 
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from config.settings import EMBEDDING_MODEL_NAME
+from platform_layer.config.settings import EMBEDDING_MODEL_NAME
 
 
 def get_embeddings():
