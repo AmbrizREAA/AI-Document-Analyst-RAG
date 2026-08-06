@@ -1,8 +1,8 @@
 """Retrieval wiring: Chroma metadata-filtered retrieval + source-grounded answer."""
 
-from config.settings import RETRIEVER_K, MAX_CONTEXT_CHUNKS
-from indexing.vector_store import retrieve_relevant_chunks
-from retrieval.context_builder import build_context
+from platform_layer.config.settings import RETRIEVER_K, MAX_CONTEXT_CHUNKS
+from pipeline.indexing.vector_store import retrieve_relevant_chunks
+from pipeline.retrieval.context_builder import build_context
 
 
 def answer_with_retrieval(

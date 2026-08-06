@@ -9,8 +9,8 @@ import os
 import pytest
 from langchain_core.documents import Document
 
-from config.settings import CHROMA_DIR
-from indexing.vector_store import (
+from platform_layer.config.settings import CHROMA_DIR
+from pipeline.indexing.vector_store import (
     get_collection,
     add_documents_to_vector_store,
     retrieve_relevant_chunks,

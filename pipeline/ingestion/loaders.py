@@ -19,8 +19,8 @@ import re
 
 from langchain_core.documents import Document
 
-from config.settings import ROWS_PER_CHUNK
-from ingestion.pdf_loader import load_pdf
+from platform_layer.config.settings import ROWS_PER_CHUNK
+from pipeline.ingestion.pdf_loader import load_pdf
 
 # Formats converted to free text/Markdown (no per-unit metadata).
 TEXT_LIKE_FORMATS = ("docx", "txt", "md", "json")

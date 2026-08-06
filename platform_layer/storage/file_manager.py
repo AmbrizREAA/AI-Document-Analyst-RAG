@@ -8,8 +8,8 @@ uploaded filename, which also keeps reprocessing the same file idempotent.
 import os
 import re
 
-from config.settings import VECTOR_STORES_DIR
-from indexing.vector_store import list_documents
+from platform_layer.config.settings import VECTOR_STORES_DIR
+from pipeline.indexing.vector_store import list_documents
 
 
 def safe_document_id(filename: str) -> str | None:

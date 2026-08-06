@@ -38,3 +38,7 @@ processed_documents/
 # OS junk
 .DS_Store
 Thumbs.db
+
+#RAG testing files
+err.txt
+out.txt

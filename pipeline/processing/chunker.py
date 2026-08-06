@@ -9,7 +9,7 @@
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from config.settings import CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHUNK_CHARS
+from platform_layer.config.settings import CHUNK_SIZE, CHUNK_OVERLAP, MAX_CHUNK_CHARS
 
 # Formats whose Documents should be split by character count.
 TEXT_SPLIT_FORMATS = {"pdf", "docx", "txt", "md", "json"}

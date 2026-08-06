@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from config.settings import DATABASE_URL
+from platform_layer.config.settings import DATABASE_URL
 
 
 def _db_available() -> tuple[bool, str]:
@@ -17,7 +17,7 @@ def _db_available() -> tuple[bool, str]:
     if not DATABASE_URL:
         return False, "DATABASE_URL is not set in .env"
     try:
-        from storage.database import init_db
+        from platform_layer.storage.database import init_db
         init_db()
         return True, ""
     except Exception as exc:  # DatabaseUnavailableError or import-time issues
@@ -47,9 +47,9 @@ def cleanup_registry():
     created = {"documents": set(), "conversations": set()}
     yield created
 
-    from storage.database import get_engine, documents, chunks, conversations, messages
+    from platform_layer.storage.database import get_engine, documents, chunks, conversations, messages
     try:
-        from indexing.vector_store import delete_document
+        from pipeline.indexing.vector_store import delete_document
     except Exception:
         delete_document = None
 

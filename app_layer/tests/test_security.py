@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from security.path_safety import (
+from platform_layer.security.path_safety import (
     sanitize_filename,
     has_allowed_extension,
     is_within_size_limit,
@@ -12,7 +12,7 @@ from security.path_safety import (
     safe_index_path,
     VECTOR_STORES_DIR,
 )
-from config.settings import MAX_FILE_SIZE_BYTES
+from platform_layer.config.settings import MAX_FILE_SIZE_BYTES
 
 
 # --- filename sanitization -------------------------------------------------
@@ -95,7 +95,7 @@ def test_is_within_size_limit_false_for_oversize(tmp_path, monkeypatch):
     f = tmp_path / "big.bin"
     f.write_bytes(b"x" * 1024)
     # Pretend the limit is tiny so we don't have to write 25 MB.
-    monkeypatch.setattr("security.path_safety.MAX_FILE_SIZE_BYTES", 10)
+    monkeypatch.setattr("platform_layer.security.path_safety.MAX_FILE_SIZE_BYTES", 10)
     assert is_within_size_limit(str(f)) is False
 
 
