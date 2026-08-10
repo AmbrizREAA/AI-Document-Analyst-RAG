@@ -6,10 +6,17 @@ around the codebase.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Absolute anchor for everything path-like: the project root is two levels up
+# from this file (platform_layer/config/settings.py). Anchoring here — instead
+# of os.getcwd() — makes the app behave identically no matter which directory
+# `chainlit run` is launched from.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+load_dotenv(PROJECT_ROOT / ".env")
 
 # --- Secrets / environment ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -20,23 +27,26 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # --- Models ---
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-LLM_MODEL_NAME = "llama-3.1-8b-instant"
+# NOTE: changing EMBEDDING_MODEL_NAME invalidates every vector already stored in
+# ChromaDB — clear the collection and re-process all documents afterwards.
+EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+LLM_MODEL_NAME = "openai/gpt-oss-20b"
 LLM_TEMPERATURE = 0
 
 # --- Storage ---
 # Persistent ChromaDB directory. One local collection holds every document's
 # chunks; deletion and metadata filtering happen inside Chroma. Override the
 # location/name with CHROMA_PERSIST_DIR / CHROMA_COLLECTION_NAME in .env.
+# Defaults to <project root>/chroma_db regardless of the launch directory.
 CHROMA_DIR = os.path.realpath(
-    os.getenv("CHROMA_PERSIST_DIR") or os.path.join(os.getcwd(), "chroma_db")
+    os.getenv("CHROMA_PERSIST_DIR") or (PROJECT_ROOT / "chroma_db")
 )
 CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION_NAME", "document_chunks")
 
 # Legacy: root directory of the old FAISS vector stores. No longer used for
 # storage; kept only so the app can detect pre-migration folders (see
 # storage/file_manager.list_legacy_faiss_stores).
-VECTOR_STORES_DIR = os.path.realpath(os.path.join(os.getcwd(), "vector_stores"))
+VECTOR_STORES_DIR = os.path.realpath(PROJECT_ROOT / "vector_stores")
 
 # --- Uploads ---
 # Supported document formats. Add new extensions here (lowercase, with dot)
@@ -72,6 +82,11 @@ RETRIEVER_K = int(os.getenv("TOP_K", "5"))
 # Upper bound on how many of those chunks are actually sent to the LLM as
 # evidence. Keeps the prompt bounded and citations manageable.
 MAX_CONTEXT_CHUNKS = int(os.getenv("MAX_CONTEXT_CHUNKS", "4"))
+# Optional cross-encoder reranking: re-scores the retrieved chunks and keeps
+# the best MAX_CONTEXT_CHUNKS before the context is built. Small fp32 model,
+# safe on modest GPUs/CPU; disable with USE_RERANKER=false if it is too slow.
+USE_RERANKER = os.getenv("USE_RERANKER", "true").strip().lower() in ("1", "true", "yes", "on")
+RERANKER_MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L6-v2"
 # Cap on the model's answer length (passed to the provider as max_tokens).
 MAX_ANSWER_TOKENS = 512
 
