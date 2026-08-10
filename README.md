@@ -2,7 +2,7 @@
 
 **Ask natural-language questions about your documents and get source-grounded, cited answers.**
 
-Upload PDFs, Office files, spreadsheets, or plain text; the app converts and chunks them, stores embeddings in **ChromaDB**, keeps document/chunk metadata and conversation history in **PostgreSQL**, and answers questions with **Groq + Llama 3.1** using retrieval-augmented generation (RAG).
+Upload PDFs, Office files, spreadsheets, or plain text; the app converts and chunks them, stores embeddings in **ChromaDB**, keeps document/chunk metadata and conversation history in **PostgreSQL**, and answers questions with **Groq** (`openai/gpt-oss-20b`) using retrieval-augmented generation (RAG).
 
 Built and tested on modest hardware (GTX 1060 + 32 GB RAM) with a focus on a clean, modular, portfolio-friendly design.
 
@@ -12,12 +12,13 @@ Built and tested on modest hardware (GTX 1060 + 32 GB RAM) with a focus on a cle
 
 - **Multi-format ingestion** — PDF, DOCX, PPTX, XLSX, CSV, TXT, MD, JSON
 - **Multi-document retrieval** — select one, many, or all processed documents to query together
+- **Cross-encoder reranking** — retrieved chunks are re-scored by a small cross-encoder so only the most relevant evidence reaches the LLM (disable with `USE_RERANKER=false`)
 - **Document registry** — every upload is tracked in PostgreSQL with status, chunk count, and a unique content hash (so the same file isn't processed twice)
 - **Conversation memory** — recent turns and a rolling summary let follow-up questions ("and its budget?") resolve correctly
 - **Source-grounded answers with citations** — answers cite the document name and page/slide/sheet they came from, and the model refuses to answer when the evidence is insufficient
 - **Prompt-injection resistance** — retrieved document text is treated as *evidence, not instructions*
 - **Logical delete** — documents can be removed from retrieval without losing past conversation history
-- **Clean Gradio UI** and a graceful startup error if PostgreSQL or the API key is misconfigured
+- **Clean Chainlit chat UI** — streaming answers with clickable source references, drag-and-drop uploads, and a graceful startup error if PostgreSQL or the API key is misconfigured
 
 ---
 
@@ -27,7 +28,8 @@ The code is organized into small, single-responsibility modules, grouped under t
 
 ```text
 AI-Document-Analyst-RAG/
-├── app.py                          # Entry point: builds and launches the Gradio app
+├── app.py                          # Entry point: Chainlit app (run with `chainlit run app.py`)
+├── chainlit.md                     # Chainlit welcome screen
 ├── pipeline/                       # The RAG data flow, end to end
 │   ├── ingestion/
 │   │   ├── pdf_loader.py           # PyMuPDF PDF loading (page metadata)
@@ -38,10 +40,11 @@ AI-Document-Analyst-RAG/
 │   │   ├── embeddings.py           # HuggingFace / SentenceTransformers embeddings
 │   │   └── vector_store.py         # ChromaDB collection: add / retrieve / soft-delete
 │   ├── retrieval/
-│   │   ├── retriever.py            # Retrieve + generate
+│   │   ├── retriever.py            # Retrieve + rerank + generate
+│   │   ├── reranker.py             # Optional cross-encoder re-scoring of retrieved chunks
 │   │   └── context_builder.py      # Source-labeled evidence blocks for citations
 │   └── llm/
-│       ├── provider.py             # Groq/Llama client + answer chain
+│       ├── provider.py             # Groq client + answer chain
 │       └── prompts.py              # Analyst prompt (grounding, citations, injection resistance)
 ├── platform_layer/                 # Cross-cutting infrastructure
 │   ├── config/
@@ -53,9 +56,10 @@ AI-Document-Analyst-RAG/
 │       └── path_safety.py          # Filename sanitization, traversal prevention, size/type checks
 └── app_layer/                      # User-facing surface
     ├── ui/
-    │   └── gradio_app.py           # Gradio interface + orchestration (DocumentReaderAI)
+    │   └── document_reader.py      # UI-agnostic orchestration (DocumentReaderAI)
     ├── scripts/
-    │   └── smoke_test.py           # One-shot health check (imports, env, DB, Chroma, config)
+    │   ├── smoke_test.py           # One-shot health check (imports, env, DB, Chroma, config)
+    │   └── chainlit_socket_smoke.py# Throwaway socket.io check against a running Chainlit server
     └── tests/                      # pytest suite (unit + integration)
 ```
 
@@ -68,6 +72,18 @@ The project originally used FAISS. ChromaDB replaced it because it provides:
 - **No unsafe pickle deserialization** — FAISS persistence relied on Python `pickle` (arbitrary-code-execution risk when loading untrusted indexes). Chroma stores embeddings without that risk.
 
 > The old `vector_stores/` FAISS folders are no longer used. The app can detect them but never loads them; re-upload the source file to ingest it into ChromaDB.
+
+### Re-indexing after an embedding model change
+
+Embeddings from different models are **not compatible**. The app currently embeds with `BAAI/bge-small-en-v1.5` (previously `all-MiniLM-L6-v2`). If your `chroma_db/` folder still holds vectors from an older model, retrieval quality will silently degrade — clear the collection and re-process your documents:
+
+```bash
+# Stop the app, then delete the persisted vectors:
+rm -rf chroma_db/          # Windows: rmdir /s /q chroma_db
+# Restart the app and re-upload/re-process each document.
+```
+
+PostgreSQL metadata does not need to change; re-processing the same file updates the existing registry rows.
 
 ### Why PostgreSQL
 
@@ -88,9 +104,10 @@ This keeps structured queries, joins, and history in a real database while embed
 ## Tech Stack
 
 - **Python 3.10+**
-- **Gradio** — UI
-- **Groq + Llama 3.1** (`llama-3.1-8b-instant`) — LLM inference
-- **HuggingFace / Sentence-Transformers** (`all-MiniLM-L6-v2`) — embeddings
+- **Chainlit** — chat UI (streaming answers, source references, drag-and-drop uploads)
+- **Groq** (`openai/gpt-oss-20b`) — LLM inference
+- **HuggingFace / Sentence-Transformers** (`BAAI/bge-small-en-v1.5`) — embeddings
+- **Cross-Encoder** (`cross-encoder/ms-marco-MiniLM-L6-v2`) — retrieval reranking
 - **ChromaDB** — local persistent vector store
 - **PostgreSQL** via **SQLAlchemy Core** + **psycopg (v3)** — metadata & conversation memory
 - **MarkItDown**, **pandas/openpyxl**, **python-pptx**, **PyMuPDF** — document conversion
@@ -156,7 +173,7 @@ GROQ_API_KEY=your_groq_api_key_here          # https://console.groq.com/keys
 DATABASE_URL=postgresql+psycopg://postgres:YOUR_PASSWORD@localhost:5432/ai_document_analyst
 ```
 
-Optional overrides (defaults shown in `.env.example`): `CHROMA_PERSIST_DIR`, `CHROMA_COLLECTION_NAME`, `MAX_UPLOAD_SIZE_MB`, `TOP_K`, `MAX_CONTEXT_CHUNKS`.
+Optional overrides (defaults shown in `.env.example`): `CHROMA_PERSIST_DIR`, `CHROMA_COLLECTION_NAME`, `MAX_UPLOAD_SIZE_MB`, `TOP_K`, `MAX_CONTEXT_CHUNKS`, `USE_RERANKER`.
 
 ### 5. PostgreSQL setup
 
@@ -169,19 +186,21 @@ Optional overrides (defaults shown in `.env.example`): `CHROMA_PERSIST_DIR`, `CH
 
 ```bash
 python app.py
+# or equivalently:
+chainlit run app.py    # add -w for auto-reload during development
 ```
 
-The app validates `GROQ_API_KEY`, connects to PostgreSQL, initializes tables and the ChromaDB collection, then launches the Gradio UI. The embedding model downloads on first run.
+The app validates `GROQ_API_KEY`, connects to PostgreSQL, initializes tables and the ChromaDB collection, then serves the Chainlit chat UI (default: http://localhost:8000). The embedding model downloads on first run. Launch from the project root so Chainlit picks up the local `.chainlit/` config and `chainlit.md` welcome screen.
 
 ---
 
 ## Usage
 
-1. **Add a document** — choose a supported file and click *Process Document*. It's converted, chunked, embedded into ChromaDB, and registered in PostgreSQL. The same file (by content hash) is never processed twice.
-2. **Select documents for chat** — use the multi-select to pick one, many, or all processed documents. The info table shows filename, type, status, and chunk count.
-3. **Ask a question** — retrieval is restricted to your selected documents. The answer is grounded in the retrieved chunks and includes a short explanation and **Sources** (document name + page/slide/sheet). If the evidence is insufficient, the app says so instead of guessing.
+1. **Add a document** — drag a supported file into the chat. It's converted, chunked, embedded into ChromaDB, and registered in PostgreSQL. The same file (by content hash) is never processed twice, and newly processed documents are auto-selected for chat.
+2. **Select documents for chat** — open the settings (gear) panel and use the multi-select to pick one, many, or all processed documents. The documents table in the chat shows filename, type, status, and chunk count.
+3. **Ask a question** — retrieval is restricted to your selected documents and the answer streams in token by token. It is grounded in the retrieved chunks and comes with clickable **source references** (document name + page/slide/sheet) that open the exact chunk text in the side panel. If the evidence is insufficient, the app says so instead of guessing.
 4. **Follow-up questions** work — recent turns and a rolling summary are fed back so pronouns/follow-ups resolve.
-5. **Delete** — *Delete Selected* logically removes documents from retrieval; past conversation messages are preserved.
+5. **Delete** — type `/documents` to list processed documents with per-document delete buttons. Deletion is logical: documents leave retrieval, but past conversation messages are preserved.
 
 If no document is selected, the app shows a clear message instead of searching everything.
 
@@ -204,10 +223,12 @@ Test coverage:
 - `app_layer/tests/test_security.py` — filename sanitization, path-traversal prevention, allowed-extension validation, upload size limits
 - `app_layer/tests/test_database.py` — DB init, table schema, document registry, logical delete, failed status, chunk metadata (incl. JSONB and optional positional fields), conversation memory
 - `app_layer/tests/test_chroma.py` — collection init, add, metadata-filtered retrieval, exclusion of deleted/unselected docs, controlled error on empty selection
+- `app_layer/tests/test_reranker.py` — model config (Groq/embedding/reranker names), cross-encoder rerank ordering and trimming, retriever integration with the reranker on/off
+- `app_layer/tests/test_chainlit_upload.py` — Chainlit's extension-less upload paths are staged under their original filename before ingestion
 
 ### Smoke test
 
-A standalone health check that verifies imports, environment variables, the PostgreSQL connection + tables, the ChromaDB collection, and config — **without launching Gradio or downloading the LLM**. It masks the database password in its output.
+A standalone health check that verifies imports, environment variables, the PostgreSQL connection + tables, the ChromaDB collection, and config — **without launching Chainlit or downloading the LLM**. It masks the database password in its output.
 
 ```bash
 python app_layer/scripts/smoke_test.py
@@ -233,7 +254,7 @@ python app_layer/scripts/smoke_test.py
 | `Could not connect to PostgreSQL` | Server not running, or `DATABASE_URL` host/port/credentials wrong. The error message never prints your password. |
 | `password authentication failed` | Wrong user/password in `DATABASE_URL`. |
 | `database "ai_document_analyst" does not exist` and isn't auto-created | The DB role lacks `CREATEDB`; create it manually with `createdb ai_document_analyst` or grant the privilege. |
-| First question is slow | The embedding model downloads/loads on first use. |
+| First question is slow | The embedding model (and the reranker, if enabled) downloads/loads on first use. |
 | `No readable text could be extracted` | The file is empty or image-only (no OCR). |
 | Integration tests skipped | Expected when `DATABASE_URL` is unset or PostgreSQL is unreachable. |
 

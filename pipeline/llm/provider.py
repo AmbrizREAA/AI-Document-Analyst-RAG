@@ -1,4 +1,4 @@
-"""Groq/Llama LLM provider and the answer-generation chain."""
+"""Groq LLM provider and the answer-generation chain."""
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
@@ -13,7 +13,7 @@ from pipeline.llm.prompts import get_analyst_prompt, get_summary_prompt
 
 
 def get_llm() -> ChatGroq:
-    """Create the Groq-hosted Llama model, validating the API key first."""
+    """Create the Groq-hosted chat model, validating the API key first."""
     if not GROQ_API_KEY or GROQ_API_KEY.strip() in ("", "your_groq_api_key_here"):
         raise RuntimeError(
             "GROQ_API_KEY is not set. Copy .env.example to .env and add your key "

@@ -27,6 +27,9 @@ vector_stores/
 uploads/
 processed_documents/
 
+# Chainlit runtime upload scratch dir (config in .chainlit/ IS committed)
+.files/
+
 # Local databases
 *.db
 *.sqlite3
