@@ -1,0 +1,10 @@
+/* Custom UI overrides for AI Document Analyst Pro.
+   Loaded via custom_css in .chainlit/config.toml. */
+
+/* The settings panel's document MultiSelect renders its dropdown as a cmdk
+   list capped at 300px by Chainlit's default styles, which hides most of a
+   long document list. Give it most of the viewport height instead (it stays
+   scrollable for very long lists). */
+[cmdk-list] {
+  max-height: 60vh !important;
+}

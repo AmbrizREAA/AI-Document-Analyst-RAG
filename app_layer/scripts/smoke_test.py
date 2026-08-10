@@ -6,7 +6,7 @@ Run from the project root:
 
 Verifies that imports work, environment variables are loaded, PostgreSQL is
 reachable and initialized, the ChromaDB collection opens, and app config/wiring
-loads — all WITHOUT launching the Gradio server or downloading the LLM. Secrets
+loads — all WITHOUT launching the Chainlit server or downloading the LLM. Secrets
 are never printed: the DATABASE_URL is shown with its password masked.
 
 Exits 0 if every check passes, 1 otherwise.
@@ -86,8 +86,8 @@ def check_chroma():
 
 def check_config_and_wiring():
     from platform_layer.config import settings
-    # App wiring imports without launching Gradio or loading the model.
-    from app_layer.ui.gradio_app import create_interface  # noqa: F401
+    # App wiring imports without launching Chainlit or loading the model.
+    from app_layer.ui.document_reader import DocumentReaderAI  # noqa: F401
     return (
         f"config OK (formats={len(settings.ALLOWED_EXTENSIONS)}, "
         f"max_upload={settings.MAX_FILE_SIZE_MB}MB, top_k={settings.RETRIEVER_K}, "
